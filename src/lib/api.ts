@@ -1,4 +1,4 @@
-const BASE_URL = "https://pink-melons-care.loca.lt";
+const BASE_URL = "https://small-buttons-learn.loca.lt";
 
 // 带超时的 fetch
 async function fetchWithTimeout(url: string, options: RequestInit, timeout: number = 600000): Promise<Response> {
