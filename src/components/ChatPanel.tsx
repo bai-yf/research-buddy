@@ -37,42 +37,23 @@ const QuickButtons = ({ onSend, onClear }: { onSend: (text: string) => void; onC
   );
 };
 
-// 将文本中的 URL 和 Markdown 链接转换为可点击的 HTML（修复版）
+// 简化版：只处理纯文本 URL，不处理已有 HTML
 const formatContent = (text: string) => {
   if (!text) return "...";
   
-  let processed = text;
+  // 如果文本已经包含 HTML 标签，直接返回（不再处理）
+  if (text.includes('<a ') || text.includes('class="text-blue-500')) {
+    return <span dangerouslySetInnerHTML={{ __html: text }} />;
+  }
   
-  // 1. 处理 Markdown 链接 [text](url)
-  const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  processed = processed.replace(markdownLinkRegex, (_match, linkText, url) => {
+  // 处理 Markdown 链接 [text](url)
+  let processed = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, linkText, url) => {
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${linkText}</a>`;
   });
   
-  // 2. 处理普通 URL（http:// 或 https:// 开头），但排除已经是链接的部分
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  processed = processed.replace(urlRegex, (url) => {
-    // 检查这个 URL 是否已经被包裹在 <a> 标签中
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = processed;
-    const links = tempDiv.querySelectorAll('a');
-    for (const link of links) {
-      if (link.getAttribute('href') === url) {
-        return url; // 已经是链接，直接返回原 URL
-      }
-    }
+  // 处理普通 URL
+  processed = processed.replace(/(https?:\/\/[^\s]+)/g, (url) => {
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${url}</a>`;
-  });
-  
-  // 3. 处理 DOI 链接（10.xxxx/xxxx），但排除已经是链接的部分
-  const doiRegex = /(10\.\d{4,9}\/[-._;()/:A-Z0-9]+)/gi;
-  processed = processed.replace(doiRegex, (doi) => {
-    // 检查这个 DOI 是否已经被包裹在 <a> 标签中
-    if (processed.includes(`href="https://doi.org/${doi}"`)) {
-      return doi;
-    }
-    const url = `https://doi.org/${doi}`;
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${doi}</a>`;
   });
   
   return <span dangerouslySetInnerHTML={{ __html: processed }} />;
