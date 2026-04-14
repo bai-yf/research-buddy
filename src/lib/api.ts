@@ -1,7 +1,7 @@
 const BASE_URL = "https://fragrant-name-unmindful.ngrok-free.dev";
 
 // 添加超时控制的 fetch
-async function fetchWithTimeout(url: string, options: RequestInit, timeout: number = 500000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeout: number = 600000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   
