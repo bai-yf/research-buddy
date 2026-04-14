@@ -1,5 +1,5 @@
 const BASE_URL = "https://127.0.0.1:8000";
-#const BASE_URL = "https://fragrant-name-unmindful.ngrok-free.dev";
+//const BASE_URL = "https://fragrant-name-unmindful.ngrok-free.dev";
 
 export async function askQuestion(sessionId: string, question: string): Promise<string> {
   const res = await fetch(`${BASE_URL}/ask`, {
