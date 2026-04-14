@@ -1,4 +1,4 @@
-const BASE_URL = "https://cool-pianos-care.loca.lt";
+const BASE_URL = "https://fragrant-name-unmindful.ngrok-free.dev ";
 
 export async function askQuestion(sessionId: string, question: string): Promise<string> {
   const res = await fetch(`${BASE_URL}/ask`, {
