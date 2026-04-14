@@ -1,4 +1,6 @@
-const BASE_URL = "https://small-buttons-learn.loca.lt";
+const BASE_URL = "https://127.0.0.1:8000";
+//const BASE_URL = "https://fragrant-name-unmindful.ngrok-free.dev";
+//const BASE_URL = "https://small-buttons-learn.loca.lt";
 
 // 带超时的 fetch
 async function fetchWithTimeout(url: string, options: RequestInit, timeout: number = 600000): Promise<Response> {
