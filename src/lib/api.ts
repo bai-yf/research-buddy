@@ -1,4 +1,4 @@
-const BASE_URL = "https://127.0.0.1:8000";
+const BASE_URL = "http://127.0.0.1:8000";
 //const BASE_URL = "https://fragrant-name-unmindful.ngrok-free.dev";
 //const BASE_URL = "https://small-buttons-learn.loca.lt";
 
