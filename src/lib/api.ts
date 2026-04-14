@@ -27,7 +27,7 @@ export async function askQuestion(sessionId: string, question: string): Promise<
         "ngrok-skip-browser-warning": "true"  // 添加这个
       },
       body: JSON.stringify({ session_id: sessionId, question }),
-    }, 120000); // 120秒超时
+    }, 600000); // 120秒超时
     
     if (!res.ok) throw new Error(`请求失败: ${res.status}`);
     const data = await res.json();
