@@ -37,22 +37,31 @@ const QuickButtons = ({ onSend, onClear }: { onSend: (text: string) => void; onC
   );
 };
 
-// 简化版：只处理纯文本 URL，不处理已有 HTML
+// 将文本中的 URL 和 Markdown 链接转换为可点击的 HTML
 const formatContent = (text: string) => {
   if (!text) return "...";
   
-  // 如果文本已经包含 HTML 标签，直接返回（不再处理）
+  // 如果文本已经包含 HTML 标签，直接返回（不再二次处理）
   if (text.includes('<a ') || text.includes('class="text-blue-500')) {
     return <span dangerouslySetInnerHTML={{ __html: text }} />;
   }
   
-  // 处理 Markdown 链接 [text](url)
-  let processed = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, linkText, url) => {
+  let processed = text;
+  
+  // 1. 处理 Markdown 链接 [text](url)
+  const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  processed = processed.replace(markdownLinkRegex, (_match, linkText, url) => {
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${linkText}</a>`;
   });
   
-  // 处理普通 URL
-  processed = processed.replace(/(https?:\/\/[^\s]+)/g, (url) => {
+  // 2. 处理普通 URL（http:// 或 https:// 开头）
+  // 注意：只处理没有被 Markdown 链接包裹的 URL
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  processed = processed.replace(urlRegex, (url) => {
+    // 检查这个 URL 是否已经被包裹在 <a> 标签中
+    if (processed.includes(`href="${url}"`)) {
+      return url;
+    }
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${url}</a>`;
   });
   
