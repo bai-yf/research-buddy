@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2 } from "lucide-react";
 import type { ChatMessage } from "@/lib/sessions";
-import { askQuestionStream } from "@/lib/api";  // 改成流式
+import { askQuestion } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface ChatPanelProps {
@@ -60,7 +60,6 @@ export default function ChatPanel({ sessionId, messages, onMessagesChange }: Cha
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const currentAiIndexRef = useRef<number>(-1);  // 记录当前 AI 消息的索引
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -71,67 +70,22 @@ export default function ChatPanel({ sessionId, messages, onMessagesChange }: Cha
       const trimmed = text.trim();
       if (!trimmed || loading) return;
 
-      // 添加用户消息
       const userMsg: ChatMessage = { role: "user", content: trimmed, timestamp: Date.now() };
       const updated = [...messages, userMsg];
       onMessagesChange(updated);
       setInput("");
       setLoading(true);
 
-      // 添加一个空的 AI 消息占位
-      const aiPlaceholder: ChatMessage = { role: "ai", content: "", timestamp: Date.now() };
-      const withPlaceholder = [...updated, aiPlaceholder];
-      onMessagesChange(withPlaceholder);
-      currentAiIndexRef.current = withPlaceholder.length - 1;
-
       try {
-        // 使用流式请求
-        await askQuestionStream(
-          sessionId,
-          trimmed,
-          // onChunk: 逐字追加
-          (chunk: string) => {
-            setLoading(false); // 收到第一个 chunk 时关闭 loading
-            onMessagesChange((prev) => {
-              const newMessages = [...prev];
-              const lastMsg = newMessages[currentAiIndexRef.current];
-              if (lastMsg && lastMsg.role === "ai") {
-                lastMsg.content += chunk;
-              }
-              return newMessages;
-            });
-          },
-          // onComplete: 完成
-          (fullAnswer: string) => {
-            console.log("流式完成");
-            setLoading(false);
-            inputRef.current?.focus();
-          },
-          // onError: 错误
-          (error: string) => {
-            console.error("流式错误:", error);
-            onMessagesChange((prev) => {
-              const newMessages = [...prev];
-              const lastMsg = newMessages[currentAiIndexRef.current];
-              if (lastMsg && lastMsg.role === "ai") {
-                lastMsg.content = `⚠️ 请求失败: ${error}`;
-              }
-              return newMessages;
-            });
-            setLoading(false);
-          }
-        );
-      } catch (error) {
-        console.error("请求错误:", error);
-        onMessagesChange((prev) => {
-          const newMessages = [...prev];
-          const lastMsg = newMessages[currentAiIndexRef.current];
-          if (lastMsg && lastMsg.role === "ai") {
-            lastMsg.content = "⚠️ 请求失败，请检查后端服务是否运行。";
-          }
-          return newMessages;
-        });
+        const answer = await askQuestion(sessionId, trimmed);
+        const aiMsg: ChatMessage = { role: "ai", content: answer, timestamp: Date.now() };
+        onMessagesChange([...updated, aiMsg]);
+      } catch {
+        const errMsg: ChatMessage = { role: "ai", content: "⚠️ 请求失败，请检查后端服务是否运行。", timestamp: Date.now() };
+        onMessagesChange([...updated, errMsg]);
+      } finally {
         setLoading(false);
+        inputRef.current?.focus();
       }
     },
     [sessionId, messages, onMessagesChange, loading]
@@ -158,7 +112,7 @@ export default function ChatPanel({ sessionId, messages, onMessagesChange }: Cha
         {messages.map((msg, i) => (
           <MessageBubble key={i} msg={msg} />
         ))}
-        {loading && messages[messages.length - 1]?.content === "" && (
+        {loading && (
           <div className="flex justify-start mb-3">
             <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-[hsl(var(--chat-ai))] text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
