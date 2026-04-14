@@ -37,7 +37,52 @@ const QuickButtons = ({ onSend, onClear }: { onSend: (text: string) => void; onC
   );
 };
 
+// 转义正则表达式特殊字符
+const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// 将文本中的 URL 和 Markdown 链接转换为可点击的 HTML
+const formatContent = (text: string) => {
+  if (!text) return "...";
+  
+  let processed = text;
+  
+  // 1. 处理 Markdown 链接 [text](url)
+  const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const markdownLinks: { text: string; url: string }[] = [];
+  let match;
+  while ((match = markdownLinkRegex.exec(text)) !== null) {
+    markdownLinks.push({ text: match[1], url: match[2] });
+  }
+  
+  markdownLinks.forEach((link) => {
+    const escapedText = escapeRegex(link.text);
+    const escapedUrl = escapeRegex(link.url);
+    processed = processed.replace(
+      new RegExp(`\\[${escapedText}\\]\\(${escapedUrl}\\)`, 'g'),
+      `<a href="${link.url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${link.text}</a>`
+    );
+  });
+  
+  // 2. 处理普通 URL（http:// 或 https:// 开头）
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  processed = processed.replace(urlRegex, (url) => {
+    // 如果已经是链接的一部分，跳过
+    if (processed.includes(`<a href="${url}"`)) return url;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${url}</a>`;
+  });
+  
+  // 3. 处理 DOI 链接（可选）
+  const doiRegex = /(10\.\d{4,9}\/[-._;()/:A-Z0-9]+)/gi;
+  processed = processed.replace(doiRegex, (doi) => {
+    const url = `https://doi.org/${doi}`;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${doi}</a>`;
+  });
+  
+  return <span dangerouslySetInnerHTML={{ __html: processed }} />;
+};
+
 const MessageBubble = ({ msg }: { msg: ChatMessage }) => {
+  if (!msg || !msg.role) return null;
   const isUser = msg.role === "user";
   return (
     <div className={cn("flex w-full mb-3", isUser ? "justify-end" : "justify-start")}>
@@ -49,7 +94,7 @@ const MessageBubble = ({ msg }: { msg: ChatMessage }) => {
             : "bg-[hsl(var(--chat-ai))] text-[hsl(var(--chat-ai-foreground))] rounded-bl-md"
         )}
       >
-        {msg.content}
+        {formatContent(msg.content)}
       </div>
     </div>
   );
@@ -109,7 +154,7 @@ export default function ChatPanel({ sessionId, messages, onMessagesChange }: Cha
             <p className="text-sm">输入问题开始探索，或使用快捷按钮</p>
           </div>
         )}
-        {messages.map((msg, i) => (
+        {messages.filter(msg => msg && msg.role).map((msg, i) => (
           <MessageBubble key={i} msg={msg} />
         ))}
         {loading && (
