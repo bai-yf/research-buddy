@@ -1,4 +1,4 @@
-const BASE_URL = "http://10.19.126.202:8000";
+const BASE_URL = "https://cool-pianos-care.loca.lt";
 
 export async function askQuestion(sessionId: string, question: string): Promise<string> {
   const res = await fetch(`${BASE_URL}/ask`, {
