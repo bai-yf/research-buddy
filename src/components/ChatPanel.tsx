@@ -41,27 +41,34 @@ const QuickButtons = ({ onSend, onClear }: { onSend: (text: string) => void; onC
 const formatContent = (text: string) => {
   if (!text) return "...";
   
-  // 如果文本已经包含 HTML 标签，直接返回（不再二次处理）
-  if (text.includes('<a ') || text.includes('class="text-blue-500')) {
-    return <span dangerouslySetInnerHTML={{ __html: text }} />;
+  // 强制清理：提取纯文本 URL，移除所有 HTML 标签
+  let cleaned = text;
+  
+  // 提取 href 属性中的 URL
+  const hrefRegex = /href="([^"]+)"/g;
+  const urls: string[] = [];
+  let match;
+  while ((match = hrefRegex.exec(text)) !== null) {
+    urls.push(match[1]);
   }
   
-  let processed = text;
+  // 用提取的 URL 替换 HTML 链接
+  urls.forEach((url, index) => {
+    cleaned = cleaned.replace(/<a[^>]*>点击跳转<\/a>/g, `[点击跳转](${url})`);
+    cleaned = cleaned.replace(/<a[^>]*>([^<]+)<\/a>/g, `[$1](${url})`);
+  });
   
-  // 1. 处理 Markdown 链接 [text](url)
-  const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  processed = processed.replace(markdownLinkRegex, (_match, linkText, url) => {
+  // 移除残留的 HTML 标签
+  cleaned = cleaned.replace(/<[^>]*>/g, '');
+  
+  // 处理 Markdown 链接
+  let processed = cleaned.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, linkText, url) => {
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${linkText}</a>`;
   });
   
-  // 2. 处理普通 URL（http:// 或 https:// 开头）
-  // 注意：只处理没有被 Markdown 链接包裹的 URL
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  processed = processed.replace(urlRegex, (url) => {
-    // 检查这个 URL 是否已经被包裹在 <a> 标签中
-    if (processed.includes(`href="${url}"`)) {
-      return url;
-    }
+  // 处理普通 URL
+  processed = processed.replace(/(https?:\/\/[^\s]+)/g, (url) => {
+    if (processed.includes(`href="${url}"`)) return url;
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${url}</a>`;
   });
   
