@@ -37,10 +37,7 @@ const QuickButtons = ({ onSend, onClear }: { onSend: (text: string) => void; onC
   );
 };
 
-// 转义正则表达式特殊字符
-const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-// 将文本中的 URL 和 Markdown 链接转换为可点击的 HTML
+// 将文本中的 URL 和 Markdown 链接转换为可点击的 HTML（修复版）
 const formatContent = (text: string) => {
   if (!text) return "...";
   
@@ -48,32 +45,32 @@ const formatContent = (text: string) => {
   
   // 1. 处理 Markdown 链接 [text](url)
   const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  const markdownLinks: { text: string; url: string }[] = [];
-  let match;
-  while ((match = markdownLinkRegex.exec(text)) !== null) {
-    markdownLinks.push({ text: match[1], url: match[2] });
-  }
-  
-  markdownLinks.forEach((link) => {
-    const escapedText = escapeRegex(link.text);
-    const escapedUrl = escapeRegex(link.url);
-    processed = processed.replace(
-      new RegExp(`\\[${escapedText}\\]\\(${escapedUrl}\\)`, 'g'),
-      `<a href="${link.url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${link.text}</a>`
-    );
+  processed = processed.replace(markdownLinkRegex, (_match, linkText, url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${linkText}</a>`;
   });
   
-  // 2. 处理普通 URL（http:// 或 https:// 开头）
+  // 2. 处理普通 URL（http:// 或 https:// 开头），但排除已经是链接的部分
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   processed = processed.replace(urlRegex, (url) => {
-    // 如果已经是链接的一部分，跳过
-    if (processed.includes(`<a href="${url}"`)) return url;
+    // 检查这个 URL 是否已经被包裹在 <a> 标签中
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = processed;
+    const links = tempDiv.querySelectorAll('a');
+    for (const link of links) {
+      if (link.getAttribute('href') === url) {
+        return url; // 已经是链接，直接返回原 URL
+      }
+    }
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${url}</a>`;
   });
   
-  // 3. 处理 DOI 链接（可选）
+  // 3. 处理 DOI 链接（10.xxxx/xxxx），但排除已经是链接的部分
   const doiRegex = /(10\.\d{4,9}\/[-._;()/:A-Z0-9]+)/gi;
   processed = processed.replace(doiRegex, (doi) => {
+    // 检查这个 DOI 是否已经被包裹在 <a> 标签中
+    if (processed.includes(`href="https://doi.org/${doi}"`)) {
+      return doi;
+    }
     const url = `https://doi.org/${doi}`;
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline hover:text-blue-700 break-all">${doi}</a>`;
   });
