@@ -1,43 +1,72 @@
 const BASE_URL = "https://fragrant-name-unmindful.ngrok-free.dev";
 
-// 添加超时控制的 fetch
-async function fetchWithTimeout(url: string, options: RequestInit, timeout: number = 600000): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  
+// 流式请求
+export async function askQuestionStream(
+  sessionId: string, 
+  question: string,
+  onChunk: (chunk: string) => void,
+  onComplete: (fullAnswer: string) => void,
+  onError: (error: string) => void
+): Promise<void> {
   try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-}
-
-export async function askQuestion(sessionId: string, question: string): Promise<string> {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/ask`, {
+    const response = await fetch(`${BASE_URL}/ask_stream`, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true"  // 添加这个
+        "ngrok-skip-browser-warning": "true"
       },
       body: JSON.stringify({ session_id: sessionId, question }),
-    }, 600000); // 120秒超时
-    
-    if (!res.ok) throw new Error(`请求失败: ${res.status}`);
-    const data = await res.json();
-    return data.answer;
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      return "请求超时，后端处理时间较长，请稍后重试。";
+    });
+
+    if (!response.ok) {
+      throw new Error(`请求失败: ${response.status}`);
     }
-    return `请求失败: ${error.message}`;
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let fullAnswer = "";
+
+    while (reader) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      const text = decoder.decode(value);
+      const lines = text.split('\n');
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === 'chunk') {
+              fullAnswer += data.content;
+              onChunk(data.content);
+            } else if (data.type === 'end') {
+              onComplete(fullAnswer);
+            }
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+      }
+    }
+  } catch (error: any) {
+    onError(error.message);
   }
+}
+
+// 保留非流式接口作为备选
+export async function askQuestion(sessionId: string, question: string): Promise<string> {
+  const res = await fetch(`${BASE_URL}/ask`, {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true"
+    },
+    body: JSON.stringify({ session_id: sessionId, question }),
+  });
+  if (!res.ok) throw new Error("请求失败");
+  const data = await res.json();
+  return data.answer;
 }
 
 export async function setTopic(sessionId: string, topic: string): Promise<void> {
